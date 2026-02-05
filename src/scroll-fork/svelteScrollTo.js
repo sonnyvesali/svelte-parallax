@@ -1,7 +1,24 @@
 // fork of https://github.com/langbamit/svelte-scrollto
 import { cubicInOut } from 'svelte/easing';
-import { noop, loop, now } from 'svelte/internal';
 import _ from './helper.js';
+
+const noop = () => {};
+
+const createAnimationLoop = (callback) => {
+  let frameId;
+  let startTime = null;
+
+  const frame = (timestamp) => {
+    if (startTime === null) startTime = timestamp;
+    const shouldContinue = callback(startTime + (timestamp - startTime));
+    if (shouldContinue) {
+      frameId = requestAnimationFrame(frame);
+    }
+  };
+
+  frameId = requestAnimationFrame(frame);
+  return () => cancelAnimationFrame(frameId);
+};
 
 const defaultOptions = {
   container: 'body',
@@ -64,7 +81,7 @@ const _scrollTo = (options) => {
 
   let scrolling = true;
   let started = false;
-  let start_time = now() + delay;
+  let start_time = performance.now() + delay;
   let end_time = start_time + duration;
 
   function scrollToTopLeft(element, top, left) {
@@ -93,7 +110,7 @@ const _scrollTo = (options) => {
     _.removeListeners(container, abortEvents, stop);
   }
 
-  loop((now) => {
+  createAnimationLoop((now) => {
     if (!started && now >= start_time) {
       start(false);
     }
