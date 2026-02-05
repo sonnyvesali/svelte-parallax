@@ -1,5 +1,5 @@
 <script>
-  import { setContext, onMount } from 'svelte';
+  import { setContext } from 'svelte';
   import { spring } from 'svelte/motion';
   import { writable, derived } from 'svelte/store';
   import { quadInOut } from 'svelte/easing';
@@ -7,25 +7,29 @@
   import { scrollTo as svelteScrollTo } from './scroll-fork/svelteScrollTo.js';
   import 'focus-options-polyfill';
 
+  let {
+    /** the number of sections the container spans */
+    sections = 1,
+    /** the height of a section, defaults to window.innerHeight */
+    sectionHeight = undefined,
+    /** spring config object */
+    config = { stiffness: 0.017, damping: 0.26 },
+    /** threshold of effect start/end when container enters/exits viewport */
+    threshold = { top: 1, bottom: 1 },
+    /** a function that receives a progress object: `{ progress: float, section: number }` */
+    onProgress = undefined,
+    /** a function that receives "scrollTop" -- the number of pixels scrolled between each threshold */
+    onScroll = undefined,
+    /** disable parallax effect, layers will be frozen at target position */
+    disabled = false,
+    children,
+    ...rest
+  } = $props();
+
   // bind:this
   let container;
   // bind:innerHeight
-  let innerHeight;
-
-  /** the number of sections the container spans */
-  export let sections = 1;
-  /** the height of a section, defaults to window.innerHeight */
-  export let sectionHeight = undefined;
-  /** spring config object */
-  export let config = { stiffness: 0.017, damping: 0.26 };
-  /** threshold of effect start/end when container enters/exits viewport */
-  export let threshold = { top: 1, bottom: 1 };
-  /** a function that receives a progress object: `{ progress: float, section: number }` */
-  export let onProgress = undefined;
-  /** a function that receives "scrollTop" -- the number of pixels scrolled between each threshold */
-  export let onScroll = undefined;
-  /** disable parallax effect, layers will be frozen at target position */
-  export let disabled = false;
+  let innerHeight = $state();
 
   // bind:scrollY
   const y = writable(0);
@@ -33,8 +37,12 @@
   const top = writable(0);
   // height of a section
   const height = writable(0);
+
   // spring store to hold scroll progress
-  const progress = spring(undefined, { ...config, precision: 0.001 });
+  let progress;
+  $effect.pre(() => {
+    progress = spring(undefined, { ...config, precision: 0.001 });
+  });
 
   // fake intersection observer
   const scrollTop = derived([y, top, height], ([$y, $top, $height], set) => {
@@ -45,9 +53,17 @@
     set(step);
   });
 
-  $: if (onScroll) onScroll($scrollTop);
-  $: if (onProgress) setProgress($scrollTop, $height);
-  $: if (onProgress) onProgress($progress ?? 0);
+  $effect(() => {
+    if (onScroll) onScroll($scrollTop);
+  });
+
+  $effect(() => {
+    if (onProgress) setProgress($scrollTop, $height);
+  });
+
+  $effect(() => {
+    if (onProgress) onProgress($progress ?? 0);
+  });
 
   const setProgress = (scrollTop, height) => {
     if (height === 0) {
@@ -61,16 +77,26 @@
   // eventually filled with ParallaxLayer objects
   const layers = writableSet(new Set());
   // update ParallaxLayers from parent
-  $: $layers.forEach((layer) => {
-    layer.setHeight($height);
+  $effect(() => {
+    $layers.forEach((layer) => {
+      layer.setHeight($height);
+    });
   });
-  $: $layers.forEach((layer) => {
-    layer.setPosition($scrollTop, $height, disabled);
+
+  $effect(() => {
+    $layers.forEach((layer) => {
+      layer.setPosition($scrollTop, $height, disabled);
+    });
   });
-  $: if ($height !== 0) (sectionHeight, setDimensions());
+
+  $effect(() => {
+    if ($height !== 0) setDimensions();
+  });
 
   setContext(contextKey, {
-    config,
+    get config() {
+      return config;
+    },
     addLayer: (layer) => {
       layers.add(layer);
     },
@@ -79,14 +105,16 @@
     },
   });
 
-  onMount(() => {
-    setDimensions();
-  });
-
   const setDimensions = () => {
     height.set(sectionHeight ? sectionHeight : innerHeight);
     top.set(container.getBoundingClientRect().top + window.pageYOffset);
-  }
+  };
+
+  $effect(() => {
+    if (container) {
+      setDimensions();
+    }
+  });
 
   export function scrollTo(section, { selector = '', duration = 500, easing = quadInOut } = {}) {
     const scrollTarget = $top + $height * (section - 1);
@@ -110,22 +138,18 @@
   }
 </script>
 
-<svelte:window
-  bind:scrollY={$y}
-  bind:innerHeight
-  on:resize={() => setTimeout(setDimensions, 0)}
-/>
+<svelte:window bind:scrollY={$y} bind:innerHeight on:resize={() => setTimeout(setDimensions, 0)} />
 
 <div
-  {...$$restProps}
-  class="parallax-container {$$restProps.class ? $$restProps.class : ''}"
+  {...rest}
+  class="parallax-container {rest.class ? rest.class : ''}"
   style="
     height: {$height * sections}px;
-    {$$restProps.style ? $$restProps.style : ''};
+    {rest.style ? rest.style : ''};
   "
   bind:this={container}
 >
-  <slot />
+  {@render children?.()}
 </div>
 
 <style>

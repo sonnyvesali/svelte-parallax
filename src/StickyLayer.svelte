@@ -1,22 +1,19 @@
 <script>
-  import { getContext, onMount } from 'svelte';
+  import { getContext } from 'svelte';
   import { spring } from 'svelte/motion';
   import { contextKey, clamp } from './utils';
 
-  // offset bounds where layer is sticky
-  export let offset = { top: 0, bottom: 0 };
-  // expose progress store
-  export let onProgress = undefined;
+  let { offset = { top: 0, bottom: 0 }, onProgress = undefined, children, ...rest } = $props();
 
   // get context from Parallax
   const { config, addLayer, removeLayer } = getContext(contextKey);
 
   // if layer should stick
-  let isSticky = false;
+  let isSticky = $state(false);
   // top coordinate of layer
-  let coord = 0;
+  let coord = $state(0);
   // layer height
-  let height;
+  let height = $state(0);
   // spring store to hold progress value
   const progress = spring(0, { ...config, precision: 0.001 });
 
@@ -52,7 +49,7 @@
     return scrollTop <= start ? start : end;
   };
 
-  onMount(() => {
+  $effect(() => {
     // register layer with parent
     addLayer(layer);
 
@@ -62,16 +59,19 @@
     };
   });
 
-  $: position = isSticky ? 'fixed' : 'absolute';
-  $: translate = `translate3d(0px, ${coord}px, 0px);`;
-  $: if (onProgress) onProgress($progress ?? 0);
+  const position = $derived(isSticky ? 'fixed' : 'absolute');
+  const translate = $derived(`translate3d(0px, ${coord}px, 0px);`);
+
+  $effect(() => {
+    if (onProgress) onProgress($progress ?? 0);
+  });
 </script>
 
 <div
-  {...$$restProps}
-  class="sticky-layer {$$restProps.class ? $$restProps.class : ''}"
+  {...rest}
+  class="sticky-layer {rest.class ? rest.class : ''}"
   style="
-    {$$restProps.style ? $$restProps.style : ''};
+    {rest.style ? rest.style : ''};
     position: {position};
     height: {height}px;
     -ms-transform: {translate}
@@ -79,7 +79,7 @@
     transform: {translate}
   "
 >
-  <slot progress={$progress} />
+  {@render children?.({ progress: $progress })}
 </div>
 
 <style>

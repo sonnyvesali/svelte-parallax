@@ -6,33 +6,33 @@
 <script>
   import Parallax from '../../../src/Parallax.svelte';
   import ParallaxLayer from '../../../src/ParallaxLayer.svelte';
-	import StickyLayer from '../../../src/StickyLayer.svelte';
+  import StickyLayer from '../../../src/StickyLayer.svelte';
 
-  let parallax;
+  let parallax = $state();
 
-  let parallaxProgress;
+  let parallaxProgress = $state(0);
   const handleProgress = (progress) => {
     parallaxProgress = progress;
   };
-  let layerProgress;
+  let layerProgress = $state(0);
   const handleLayerProgress = (progress) => {
     layerProgress = progress;
   };
-  let stickyProgress;
+  let stickyProgress = $state(0);
   const handleStickyProgress = (progress) => {
     stickyProgress = progress;
   };
 </script>
 
-<button on:click={parallax.scrollTo(2)}>Scroll</button>
-<h1 >
-  <div class='parallax-progress-details'>
+<button onclick={() => parallax.scrollTo(2)}>Scroll</button>
+<h1>
+  <div class="parallax-progress-details">
     {parallaxProgress}
   </div>
-  <div class='layer-progress-details'>
+  <div class="layer-progress-details">
     {layerProgress}
   </div>
-  <div class='sticky-progress-details'>
+  <div class="sticky-progress-details">
     {stickyProgress}
   </div>
 </h1>
@@ -43,17 +43,15 @@
     rate={1}
     onProgress={handleLayerProgress}
     style="display: flex; justify-content: center; align-items: center;"
-    let:progress
   >
-  <p class="layer-let-progress" style="background-color: lightblue;">{progress}</p>
+    <p class="layer-let-progress" style="background-color: lightblue;">{layerProgress}</p>
   </ParallaxLayer>
   <StickyLayer
     offset={{ top: 0.5, bottom: 1.5 }}
     onProgress={handleStickyProgress}
     style="display: flex; justify-content: center; align-items: center;"
-    let:progress
   >
-    <p class="sticky-let-progress" style="background-color: yellowgreen;">{progress}</p>
+    <p class="sticky-let-progress" style="background-color: yellowgreen;">{stickyProgress}</p>
   </StickyLayer>
 </Parallax>
 

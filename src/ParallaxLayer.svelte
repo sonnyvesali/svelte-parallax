@@ -1,16 +1,9 @@
 <script>
-  import { getContext, onMount } from 'svelte';
+  import { getContext } from 'svelte';
   import { spring } from 'svelte/motion';
   import { contextKey, clamp } from './utils';
 
-  /** rate that the layer scrolls relative to `scrollY` */
-  export let rate = 0.5;
-  /** offset from top of container when layer is in viewport */
-  export let offset = 0;
-  /** how many sections the layer spans */
-  export let span = 1;
-  /** a function that receives a number between 0 and 1, representing the progress of the layer */
-  export let onProgress = undefined;
+  let { rate = 0.5, offset = 0, span = 1, onProgress = undefined, children, ...rest } = $props();
 
   // get context from Parallax
   const { config, addLayer, removeLayer } = getContext(contextKey);
@@ -18,9 +11,9 @@
   // spring store to hold changing scroll coordinate
   const coord = spring(undefined, config);
   // and one to hold intersecting progress
-  const progress = spring(undefined, { ...config, precision: 0.001 });
+  const progress = spring(0, { ...config, precision: 0.001 });
   // layer height
-  let height;
+  let height = $state(0);
 
   const layer = {
     setPosition: (scrollTop, sectionHeight, disabled) => {
@@ -51,7 +44,7 @@
     return clamp(progress, 0, 1);
   };
 
-  onMount(() => {
+  $effect(() => {
     // register layer with parent
     addLayer(layer);
 
@@ -62,22 +55,25 @@
   });
 
   // translate layer according to coordinate
-  $: translate = `translate3d(0px, ${$coord}px, 0px);`;
-  $: if (onProgress) onProgress($progress ?? 0);
+  const translate = $derived(`translate3d(0px, ${$coord}px, 0px);`);
+
+  $effect(() => {
+    if (onProgress) onProgress($progress ?? 0);
+  });
 </script>
 
 <div
-  {...$$restProps}
-  class="parallax-layer {$$restProps.class ? $$restProps.class : ''}"
+  {...rest}
+  class="parallax-layer {rest.class ? rest.class : ''}"
   style="
-    {$$restProps.style ? $$restProps.style : ''};
+    {rest.style ? rest.style : ''};
     height: {height}px;
     -ms-transform: {translate};
     -webkit-transform: {translate};
     transform: {translate};
   "
 >
-  <slot progress={$progress} />
+  {@render children?.({ progress: $progress })}
 </div>
 
 <style>
